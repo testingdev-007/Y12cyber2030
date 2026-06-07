@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CYBERWATCH NEO — Global Threat Operations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --cyan:#29e0ff;--violet:#9b6dff;--ok:#00ffa3;--warn:#ffb020;--crit:#ff3b6b;
+  --glass:rgba(10,16,32,.55);--glass2:rgba(8,13,26,.72);--edge:rgba(120,200,255,.18);
+  --txt:#cfe9ff;--dim:#5a7a9a;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#02040a;color:var(--txt);font-family:'Rajdhani',sans-serif;overflow:hidden}
+canvas#globe{position:fixed;inset:0;z-index:0;display:block}
+#labels{position:fixed;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+#edge-flash{position:fixed;inset:0;z-index:3;pointer-events:none;box-shadow:inset 0 0 200px rgba(255,59,107,0);transition:box-shadow .15s}
+
+.glass{background:var(--glass);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);
+  border:1px solid var(--edge);border-radius:14px;
+  box-shadow:0 8px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.05)}
+
+/* TOP BAR */
+#top{position:fixed;top:14px;left:14px;right:14px;height:60px;z-index:10;display:flex;align-items:center;gap:14px;padding:0 18px}
+.logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:17px;letter-spacing:4px;
+  background:linear-gradient(90deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 12px rgba(41,224,255,.4));flex-shrink:0}
+.logo small{font-family:'Rajdhani';font-weight:600;font-size:9px;letter-spacing:3px;color:var(--dim);display:block;-webkit-text-fill-color:var(--dim)}
+.divr{width:1px;height:34px;background:var(--edge);flex-shrink:0}
+.hud-block{flex-shrink:0;display:flex;flex-direction:column;justify-content:center}
+.hud-lbl{font-size:9px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;font-weight:600}
+.hud-val{font-family:'Orbitron',sans-serif;font-weight:700;letter-spacing:1px;line-height:1.1}
+#defcon-ring{position:relative;width:46px;height:46px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+#defcon-ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+#defcon-num{font-family:'Orbitron';font-weight:900;font-size:18px;color:var(--ok);text-shadow:0 0 12px currentColor}
+#mission-time{font-size:21px;color:#fff;text-shadow:0 0 10px rgba(41,224,255,.5)}
+#ops-clock{font-size:15px;color:var(--cyan)}
+#ops-day{font-size:9px;color:var(--violet);letter-spacing:1px}
+#score-val{font-size:18px;color:var(--ok);text-shadow:0 0 10px rgba(0,255,163,.4)}
+#ticker-wrap{flex:1;overflow:hidden;height:34px;display:flex;align-items:center;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 40px),transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 40px),transparent)}
+#ticker{white-space:nowrap;font-size:11px;color:var(--dim);animation:tick 90s linear infinite;font-weight:500}
+#ticker b{color:var(--cyan)}
+@keyframes tick{0%{transform:translateX(100vw)}100%{transform:translateX(-200%)}}
+#dur{background:rgba(0,0,0,.4);color:var(--cyan);border:1px solid var(--edge);border-radius:7px;
+  font-family:'Rajdhani';font-weight:600;font-size:13px;padding:4px 6px;width:46px;flex-shrink:0;text-align:center}
+.btn{background:rgba(41,224,255,.07);color:var(--cyan);border:1px solid var(--edge);border-radius:8px;
+  font-family:'Rajdhani';font-weight:700;font-size:11px;padding:7px 12px;cursor:pointer;letter-spacing:1.5px;
+  transition:all .2s;flex-shrink:0;white-space:nowrap}
+.btn:hover:not(:disabled){background:rgba(41,224,255,.18);box-shadow:0 0 18px rgba(41,224,255,.3);border-color:var(--cyan)}
+.btn:disabled{opacity:.25;cursor:not-allowed}
+.btn.red{color:var(--crit);background:rgba(255,59,107,.07)}
+.btn.red:hover:not(:disabled){background:rgba(255,59,107,.18);box-shadow:0 0 18px rgba(255,59,107,.3);border-color:var(--crit)}
+
+/* LEFT COLUMN */
+#left{position:fixed;left:14px;top:86px;bottom:14px;width:430px;z-index:10;display:flex;flex-direction:column;gap:12px}
+.card{display:flex;flex-direction:column;overflow:hidden}
+.card-h{padding:9px 15px;font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:2px;color:var(--cyan);
+  display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--edge);flex-shrink:0}
+.card-h .sub{font-family:'Rajdhani';font-weight:600;font-size:10px;color:var(--dim);letter-spacing:1px}
+#inc-card{flex:0 0 auto;max-height:42vh}
+#inc-list{overflow-y:auto;padding:6px}
+.ic{padding:9px 11px;margin-bottom:6px;border-radius:10px;cursor:pointer;position:relative;overflow:hidden;
+  background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05);transition:all .18s;
+  border-left:3px solid var(--dim)}
+.ic:hover{background:rgba(41,224,255,.07);transform:translateX(2px)}
+.ic.s1{border-left-color:var(--ok)}.ic.s2{border-left-color:var(--warn)}
+.ic.s3{border-left-color:var(--crit);box-shadow:0 0 16px rgba(255,59,107,.18)}
+.ic.res{opacity:.3;filter:grayscale(.7)}
+.ic-top{display:flex;align-items:center;gap:8px}
+.ic-ico{font-size:17px}
+.ic-nm{font-size:14px;font-weight:700;color:#eaf6ff;flex:1;line-height:1.1}
+.ic-pill{font-family:'Orbitron';font-size:8px;font-weight:700;padding:3px 7px;border-radius:20px;letter-spacing:.5px}
+.p1{background:rgba(0,255,163,.12);color:var(--ok)}.p2{background:rgba(255,176,32,.14);color:var(--warn)}
+.p3{background:rgba(255,59,107,.16);color:var(--crit)}.pr{background:rgba(90,122,154,.12);color:var(--dim)}
+.ic-sub{font-size:11px;color:var(--dim);margin-top:3px;font-weight:500}
+.ic-next{font-size:12px;color:var(--cyan);margin-top:3px;font-weight:700;letter-spacing:.5px}
+.ic-mut{font-size:10px;color:var(--violet);margin-top:2px;font-weight:600;letter-spacing:.5px}
+.ic-esc{font-size:11px;margin-top:3px;font-weight:600}
+.ic-bar{height:3px;border-radius:3px;margin-top:6px;background:rgba(255,255,255,.06);overflow:hidden}
+.ic-bar>i{display:block;height:100%;border-radius:3px;transition:width .3s}
+
+#term-card{flex:1 1 0;min-height:0}
+#t-out{flex:1 1 0;overflow-y:auto;padding:11px 14px;font-family:'Share Tech Mono',monospace;font-size:12px;line-height:1.55;min-height:0}
+.ti{color:#7fe9c8}.ts{color:var(--ok);font-weight:bold}.te{color:var(--crit)}.tw{color:var(--warn)}
+.ty{color:var(--violet);line-height:1.7}.td{color:var(--dim)}.tc{color:#fff;margin-top:3px}
+.tsys{color:var(--cyan)}.tg{color:#ff9d5c}
+.th{color:var(--cyan);font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:1px;margin:5px 0 2px}
+.ti,.ts,.te,.tw,.ty,.td,.tc,.th,.tsys,.tg{display:block}
+#t-in-row{display:flex;align-items:center;padding:9px 14px;border-top:1px solid var(--edge);flex-shrink:0}
+#t-prompt{color:var(--cyan);font-family:'Share Tech Mono';font-size:12px;margin-right:6px;white-space:nowrap;
+  text-shadow:0 0 8px rgba(41,224,255,.5);user-select:none}
+#t-in{flex:1;background:transparent;border:none;outline:none;color:#fff;font-family:'Share Tech Mono',monospace;font-size:12px;caret-color:var(--cyan)}
+
+/* ATTACK HUD LABELS */
+.alabel{position:absolute;transform:translate(-50%,-130%);pointer-events:none;white-space:nowrap;
+  font-family:'Rajdhani';font-weight:700;font-size:11px;padding:3px 8px;border-radius:7px;
+  background:rgba(5,10,20,.7);backdrop-filter:blur(4px);border:1px solid;letter-spacing:.5px;transition:opacity .3s}
+.alabel .sml{font-size:9px;opacity:.7;font-weight:600}
+
+/* OVERLAYS */
+.overlay{display:none;position:fixed;inset:0;z-index:50;align-items:center;justify-content:center;padding:20px;
+  background:radial-gradient(circle at 50% 40%,rgba(20,30,60,.6),rgba(0,2,8,.94))}
+.overlay.show{display:flex}
+.ov-card{max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:30px 34px;border-radius:18px}
+.ov-tag{font-family:'Orbitron';font-size:9px;letter-spacing:4px;color:var(--dim);margin-bottom:5px}
+.ov-title{font-family:'Orbitron';font-weight:900;font-size:30px;letter-spacing:2px;margin-bottom:5px;
+  background:linear-gradient(90deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.ov-sub{font-size:12px;color:var(--cyan);margin-bottom:22px;letter-spacing:1px;font-weight:600}
+.ov-sec{margin-bottom:18px}
+.ov-sh{font-family:'Orbitron';font-size:9px;letter-spacing:2px;color:var(--violet);border-bottom:1px solid var(--edge);padding-bottom:5px;margin-bottom:10px}
+.ov-txt{font-size:14px;color:var(--txt);line-height:1.7;font-weight:500}
+.ov-cmd{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;margin-bottom:7px}
+.ov-cmd code{font-family:'Share Tech Mono';font-size:13px;color:#fff;background:rgba(41,224,255,.1);padding:4px 10px;border-radius:7px;border:1px solid var(--edge)}
+.ov-cmd span{font-size:12px;color:var(--dim);font-weight:500}
+.ov-rules{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.ov-rule{padding:10px 13px;border-left:3px solid;border-radius:0 9px 9px 0;font-size:12px;line-height:1.5;background:rgba(255,255,255,.025);font-weight:500}
+.ov-rule.r{border-color:var(--crit)}.ov-rule.y{border-color:var(--warn)}.ov-rule.g{border-color:var(--ok)}.ov-rule.w{border-color:var(--violet)}
+.ov-q{font-size:14px;color:#fff;margin-top:16px;padding:15px;border:1px solid var(--edge);border-radius:12px;line-height:1.7;background:rgba(41,224,255,.05);font-weight:500}
+.ov-btn{display:block;width:100%;margin-top:20px;padding:14px;font-family:'Orbitron';font-weight:700;font-size:12px;letter-spacing:3px;
+  color:#02040a;background:linear-gradient(90deg,var(--cyan),var(--violet));border:none;border-radius:11px;cursor:pointer;transition:all .2s}
+.ov-btn:hover{filter:brightness(1.15);box-shadow:0 0 30px rgba(41,224,255,.4)}
+.grade{font-family:'Orbitron';font-weight:900;font-size:78px;text-align:center;text-shadow:0 0 50px currentColor;line-height:1;margin:8px 0}
+.gtitle{font-family:'Orbitron';font-size:13px;letter-spacing:4px;text-align:center;margin-bottom:18px}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin:16px 0}
+.stat{padding:11px 13px;border-radius:11px;background:rgba(255,255,255,.03);border:1px solid var(--edge)}
+.stat .l{font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;font-weight:600}
+.stat .v{font-family:'Orbitron';font-size:19px;margin-top:3px;color:#fff}
+.arow{padding:6px 11px;border-left:2px solid;border-radius:0 8px 8px 0;margin-bottom:4px;background:rgba(255,255,255,.025);font-size:12px;display:flex;justify-content:space-between;font-weight:500}
+
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(41,224,255,.25);border-radius:3px}
+#loading{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#02040a}
+#loading .lt{font-family:'Orbitron';font-size:13px;letter-spacing:3px;color:var(--cyan);animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.spin{width:42px;height:42px;border:2px solid var(--edge);border-top-color:var(--cyan);border-radius:50%;animation:rot 1s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<canvas id="globe"></canvas>
+<div id="labels"></div>
+<div id="edge-flash"></div>
+
+<div id="loading"><div class="spin"></div><div class="lt">INITIALISING GLOBAL THREAT GRID</div></div>
+
+<div id="top" class="glass">
+  <div class="logo">CYBERWATCH<small>NEO · THREAT OPS</small></div>
+  <div class="divr"></div>
+  <div id="defcon-ring">
+    <svg width="46" height="46"><circle cx="23" cy="23" r="19" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+    <circle id="defcon-arc" cx="23" cy="23" r="19" fill="none" stroke="#00ffa3" stroke-width="3" stroke-linecap="round" stroke-dasharray="119" stroke-dashoffset="0"/></svg>
+    <div id="defcon-num">5</div>
+  </div>
+  <div class="hud-block"><div class="hud-lbl">Mission</div><div class="hud-val" id="mission-time">00:00</div></div>
+  <div class="divr"></div>
+  <div class="hud-block"><div class="hud-lbl" id="ops-day">DAY 1 · ×720 RT</div><div class="hud-val" id="ops-clock">06:00 UTC ☀</div></div>
+  <div class="divr"></div>
+  <div class="hud-block"><div class="hud-lbl">Score</div><div class="hud-val" id="score-val">0</div></div>
+  <div class="divr"></div>
+  <div id="ticker-wrap"><div id="ticker"></div></div>
+  <div class="divr"></div>
+  <input type="number" id="dur" min="10" max="30" value="10">
+  <button class="btn" id="btnStart" disabled>▶ DEPLOY</button>
+  <button class="btn" id="btnPause" disabled>❚❚</button>
+  <button class="btn red" id="btnCancel" disabled>✕</button>
+</div>
+
+<div id="left">
+  <div id="inc-card" class="card glass">
+    <div class="card-h"><span>◆ ACTIVE INCIDENTS</span><span class="sub" id="inc-count">0 ACTIVE</span></div>
+    <div id="inc-list"><div style="padding:18px;color:var(--dim);font-size:12px;text-align:center">Standing by...</div></div>
+  </div>
+  <div id="term-card" class="card glass">
+    <div class="card-h"><span>◆ RESPONSE TERMINAL</span><span class="sub">type 'help'</span></div>
+    <div id="t-out"></div>
+    <div id="t-in-row"><span id="t-prompt">ops@cyberwatch ▸</span><input id="t-in" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+  </div>
+</div>
+
+<div id="splash" class="overlay show"><div class="ov-card glass"></div></div>
+<div id="end" class="overlay"><div class="ov-card glass" id="ec"></div></div>
+<script>
+// ═══════════════════════════════════════════════════════
+//  MODULE LOADER  (shares the same modules/ folder)
+// ═══════════════════════════════════════════════════════
+window.CW_MODULES={};
+const MODULE_SRCS=['modules/cw_phishing.js','modules/cw_ddos.js','modules/cw_ransomware.js',
+  'modules/cw_sqli.js','modules/cw_brute.js','modules/cw_zeroday.js','modules/cw_social.js',
+  'modules/cw_dns.js','modules/cw_trojan.js','modules/cw_mitm.js','modules/cw_credstuff.js'];
+function loadModules(cb){let p=MODULE_SRCS.length;const r=[];MODULE_SRCS.forEach(src=>{
+  const s=document.createElement('script');s.src=src+'?v='+Date.now();
+  s.onload=()=>{r.push({src,ok:true});if(--p===0)cb(r);};
+  s.onerror=()=>{r.push({src,ok:false});if(--p===0)cb(r);};document.head.appendChild(s);});}
+function getScenario(inc){const m=window.CW_MODULES[inc.type];return m?(m.scenarios.find(s=>s.id===inc.scenario)||m.scenarios[0]):null;}
+
+const FEED=['NCSC advisory: heightened threat from state-sponsored actors targeting UK CNI',
+  'Cl0p ransomware: new campaign — healthcare and logistics primary targets',
+  'CRITICAL: CVE-2026-8841 zero-day in widely deployed VPN appliance — exploited in wild',
+  'Dark web listing: 14.7M credentials from financial sector breach — $12,000 BTC asking',
+  'APT-29 infrastructure detected targeting EU government systems during election period',
+  'Mirai botnet variant: 2.3M IoT devices recruited for coordinated DDoS capabilities',
+  'CERT-UK: Spear-phishing campaign targeting C-suite executives at FTSE 100 companies',
+  'LockBit 4.0: AI-adapted payloads reported evading standard antivirus signatures',
+  'GCHQ: UK businesses face 65% rise in cyber incidents — under-reporting remains high',
+  'FBI IC3: £3.4B lost to cybercrime last year — 85% of incidents go unreported',
+  'HMRC phishing clone kit deployed — 200,000 lures sent in 48 hours across UK ISPs',
+  'Scattered Spider: SIM-swapping attacks surging against telecoms sector executives'];
+
+const CITY_NODES=[
+  {city:"London",lat:51.507,lon:-0.128,region:"EU"},{city:"Paris",lat:48.856,lon:2.352,region:"EU"},
+  {city:"Amsterdam",lat:52.367,lon:4.904,region:"EU"},{city:"Frankfurt",lat:50.110,lon:8.682,region:"EU"},
+  {city:"Berlin",lat:52.520,lon:13.405,region:"EU"},{city:"Dublin",lat:53.349,lon:-6.260,region:"EU"},
+  {city:"Madrid",lat:40.416,lon:-3.703,region:"EU"},{city:"Warsaw",lat:52.230,lon:21.012,region:"EU"},
+  {city:"Stockholm",lat:59.334,lon:18.063,region:"EU"},{city:"Zurich",lat:47.376,lon:8.548,region:"EU"},
+  {city:"New York",lat:40.713,lon:-74.006,region:"NA"},{city:"Toronto",lat:43.653,lon:-79.383,region:"NA"},
+  {city:"Chicago",lat:41.878,lon:-87.630,region:"NA"},{city:"San Francisco",lat:37.774,lon:-122.419,region:"NA"},
+  {city:"Mexico City",lat:19.432,lon:-99.133,region:"NA"},{city:"São Paulo",lat:-23.550,lon:-46.633,region:"LATAM"},
+  {city:"Buenos Aires",lat:-34.603,lon:-58.381,region:"LATAM"},{city:"Bogotá",lat:4.711,lon:-74.072,region:"LATAM"},
+  {city:"Cairo",lat:30.044,lon:31.236,region:"MEA"},{city:"Dubai",lat:25.204,lon:55.271,region:"MEA"},
+  {city:"Johannesburg",lat:-26.204,lon:28.047,region:"MEA"},{city:"Lagos",lat:6.524,lon:3.379,region:"MEA"},
+  {city:"Singapore",lat:1.352,lon:103.820,region:"APAC"},{city:"Tokyo",lat:35.676,lon:139.650,region:"APAC"},
+  {city:"Seoul",lat:37.566,lon:126.978,region:"APAC"},{city:"Hong Kong",lat:22.319,lon:114.170,region:"APAC"},
+  {city:"Mumbai",lat:19.076,lon:72.878,region:"APAC"},{city:"Sydney",lat:-33.868,lon:151.209,region:"APAC"},
+  {city:"Beijing",lat:39.913,lon:116.391,region:"APAC"},{city:"Nairobi",lat:-1.286,lon:36.817,region:"MEA"}];
+
+// ═══════════════════════════════════════════════════════
+//  THREE.JS SCENE — photorealistic Earth, day/night
+// ═══════════════════════════════════════════════════════
+const GLOBE_R=1.0;
+const canvas=document.getElementById("globe");
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.outputEncoding=THREE.sRGBEncoding;
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(42,1,0.1,100);
+
+// Camera orbit state
+const camState={az:0.7,pol:1.35,rad:3.4,tRad:3.4};
+function updateCamera(){
+  camState.rad+=(camState.tRad-camState.rad)*0.12;
+  const x=camState.rad*Math.sin(camState.pol)*Math.sin(camState.az);
+  const y=camState.rad*Math.cos(camState.pol);
+  const z=camState.rad*Math.sin(camState.pol)*Math.cos(camState.az);
+  camera.position.set(x,y,z);camera.lookAt(0,0,0);
+}
+
+const globeGroup=new THREE.Group();scene.add(globeGroup);
+
+// Sun (fixed world direction; earth spin sweeps the terminator)
+const sunDir=new THREE.Vector3(1.0,0.18,0.35).normalize();
+
+// Earth material — day/night blend shader
+const texLoader=new THREE.TextureLoader();texLoader.crossOrigin="anonymous";
+const U="https://unpkg.com/three-globe/example/img/";
+const dayTex=texLoader.load(U+"earth-blue-marble.jpg",t=>{t.encoding=THREE.sRGBEncoding;});
+const nightTex=texLoader.load(U+"earth-night.jpg",t=>{t.encoding=THREE.sRGBEncoding;});
+const bumpTex=texLoader.load(U+"earth-topology.png");
+
+const earthMat=new THREE.ShaderMaterial({
+  uniforms:{dayTexture:{value:dayTex},nightTexture:{value:nightTex},sunDirection:{value:sunDir}},
+  vertexShader:`
+    varying vec2 vUv; varying vec3 vWN;
+    void main(){ vUv=uv; vWN=normalize(mat3(modelMatrix)*normal);
+      gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader:`
+    uniform sampler2D dayTexture; uniform sampler2D nightTexture; uniform vec3 sunDirection;
+    varying vec2 vUv; varying vec3 vWN;
+    void main(){
+      float c=dot(vWN,normalize(sunDirection));
+      float d=smoothstep(-0.18,0.28,c);
+      vec3 day=texture2D(dayTexture,vUv).rgb;
+      vec3 night=texture2D(nightTexture,vUv).rgb*1.7;
+      // slight twilight tint at the terminator
+      float tw=smoothstep(-0.18,0.05,c)*(1.0-smoothstep(0.05,0.30,c));
+      vec3 col=mix(night,day,d)+vec3(0.35,0.18,0.08)*tw;
+      gl_FragColor=vec4(col,1.0);
+    }`
+});
+const earth=new THREE.Mesh(new THREE.SphereGeometry(GLOBE_R,96,96),earthMat);
+globeGroup.add(earth);
+
+// Atmosphere glow (fresnel, additive, backside)
+const atmoMat=new THREE.ShaderMaterial({
+  uniforms:{c:{value:new THREE.Color(0x29e0ff)}},
+  vertexShader:`varying vec3 vNV;void main(){vNV=normalize(normalMatrix*normal);
+    gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  fragmentShader:`uniform vec3 c;varying vec3 vNV;
+    void main(){float i=pow(0.72-dot(vNV,vec3(0,0,1.0)),3.0);
+    gl_FragColor=vec4(c,1.0)*clamp(i,0.0,1.0);}`,
+  side:THREE.BackSide,blending:THREE.AdditiveBlending,transparent:true
+});
+const atmo=new THREE.Mesh(new THREE.SphereGeometry(GLOBE_R*1.16,64,64),atmoMat);
+scene.add(atmo);
+
+// Starfield
+const starGeo=new THREE.BufferGeometry();
+const starPos=[];for(let i=0;i<2200;i++){
+  const r=18+Math.random()*30,th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);
+  starPos.push(r*Math.sin(ph)*Math.cos(th),r*Math.sin(ph)*Math.sin(th),r*Math.cos(ph));}
+starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starPos,3));
+const stars=new THREE.Points(starGeo,new THREE.PointsMaterial({color:0x88bbff,size:0.07,sizeAttenuation:true,transparent:true,opacity:0.7}));
+scene.add(stars);
+
+function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
+window.addEventListener("resize",resize);resize();
+
+// lat/lon → Vector3 (matches THREE.SphereGeometry default UVs + equirectangular texture)
+function latLonToVec3(lat,lon,r){
+  const phi=(90-lat)*Math.PI/180, theta=(lon+180)*Math.PI/180;
+  return new THREE.Vector3(-r*Math.cos(theta)*Math.sin(phi), r*Math.cos(phi), r*Math.sin(theta)*Math.sin(phi));
+}
+function sevColor(s){return s===1?0x00ffa3:s===2?0xffb020:0xff3b6b;}
+function sevHex(s){return s===1?"#00ffa3":s===2?"#ffb020":"#ff3b6b";}
+
+// ═══════════════════════════════════════════════════════
+//  ATTACK MARKERS (3D) + HUD LABELS + SPREAD ARCS
+// ═══════════════════════════════════════════════════════
+const labelsEl=document.getElementById("labels");
+let arcs=[]; // {mesh,particle,curve,age,max}
+
+function makeMarker(inc){
+  const g=new THREE.Group();
+  const pos=latLonToVec3(inc.lat,inc.lon,GLOBE_R);
+  const normal=pos.clone().normalize();
+  g.position.copy(pos);
+  g.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),normal);
+  const col=sevColor(inc.sev);
+  // core
+  const core=new THREE.Mesh(new THREE.SphereGeometry(0.014,16,16),new THREE.MeshBasicMaterial({color:col}));
+  g.add(core);
+  // beam
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.004,0.12,8),
+    new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.45}));
+  beam.position.y=0.06; g.add(beam);
+  // shockwave rings (built per-sev)
+  const rings=[];
+  const ringCount=inc.sev+1;
+  for(let i=0;i<ringCount;i++){
+    const ring=new THREE.Mesh(new THREE.RingGeometry(0.025,0.032,40),
+      new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.6,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}));
+    ring.rotation.x=-Math.PI/2; ring.position.y=0.003;
+    ring._phase=i/ringCount; g.add(ring); rings.push(ring);
+  }
+  globeGroup.add(g);
+  inc._marker=g; inc._core=core; inc._beam=beam; inc._rings=rings;
+  // HUD label
+  const lab=document.createElement("div");lab.className="alabel";
+  labelsEl.appendChild(lab); inc._label=lab;
+  updateMarkerColor(inc);
+}
+function updateMarkerColor(inc){
+  if(!inc._marker)return;
+  const col=sevColor(inc.sev);
+  inc._core.material.color.setHex(col);
+  inc._beam.material.color.setHex(col);
+  // rebuild ring count if sev increased
+  const want=inc.sev+1;
+  while(inc._rings.length<want){
+    const ring=new THREE.Mesh(new THREE.RingGeometry(0.025,0.032,40),
+      new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.6,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}));
+    ring.rotation.x=-Math.PI/2;ring.position.y=0.003;ring._phase=Math.random();inc._marker.add(ring);inc._rings.push(ring);
+  }
+  inc._rings.forEach(r=>r.material.color.setHex(col));
+}
+function removeMarker(inc){
+  if(inc._marker){globeGroup.remove(inc._marker);
+    inc._marker.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});inc._marker=null;}
+  if(inc._label){inc._label.remove();inc._label=null;}
+}
+function animateMarkers(dt){
+  const camDir=camera.position.clone().normalize();
+  incidents.forEach(inc=>{
+    if(!inc._marker)return;
+    if(inc.resolved){if(inc._label)inc._label.style.opacity="0";return;}
+    const t=performance.now()/1000;
+    const spd=inc.sev===3?1.6:inc.sev===2?1.1:0.8;
+    const maxR=inc.sev===3?5.5:inc.sev===2?4:3;
+    inc._rings.forEach((ring,i)=>{
+      let f=(t*spd+ring._phase)%1;
+      const sc=1+f*maxR;
+      ring.scale.set(sc,sc,sc);
+      ring.material.opacity=0.55*(1-f);
+    });
+    const cp=1+Math.sin(t*spd*2)*0.18; inc._core.scale.setScalar(cp);
+    // HUD label
+    const wp=new THREE.Vector3();inc._marker.getWorldPosition(wp);
+    const dir=wp.clone().normalize();
+    const facing=dir.dot(camDir);
+    const lab=inc._label;
+    if(facing<0.1){lab.style.opacity="0";}
+    else{
+      const p=wp.clone().project(camera);
+      const sx=(p.x*0.5+0.5)*window.innerWidth;
+      const sy=(-p.y*0.5+0.5)*window.innerHeight;
+      lab.style.left=sx+"px";lab.style.top=sy+"px";
+      lab.style.opacity=String(Math.min(1,(facing-0.1)*3));
+      const sc=getScenario(inc);const mod=window.CW_MODULES[inc.type];
+      const hex=sevHex(inc.sev);
+      lab.style.borderColor=hex;lab.style.color=hex;
+      lab.innerHTML=`${mod?mod.icon:""} #${inc.id} ${sc?sc.name:inc.type}<span class="sml"> · ${inc.city}</span>`;
+    }
+  });
+}
+
+function makeArc(s,d){
+  const p0=latLonToVec3(s.lat,s.lon,GLOBE_R);
+  const p2=latLonToVec3(d.lat,d.lon,GLOBE_R);
+  const dist=p0.distanceTo(p2);
+  const mid=p0.clone().add(p2).multiplyScalar(0.5).normalize().multiplyScalar(GLOBE_R+dist*0.45);
+  const curve=new THREE.QuadraticBezierCurve3(p0,mid,p2);
+  const geo=new THREE.TubeGeometry(curve,44,0.0035,8,false);
+  const mat=new THREE.MeshBasicMaterial({color:0xff3b6b,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending});
+  const mesh=new THREE.Mesh(geo,mat);globeGroup.add(mesh);
+  const part=new THREE.Mesh(new THREE.SphereGeometry(0.012,10,10),new THREE.MeshBasicMaterial({color:0xffd0dd}));
+  globeGroup.add(part);
+  arcs.push({mesh,part,curve,age:0,max:4.5});
+}
+function animateArcs(dt){
+  arcs.forEach(a=>{a.age+=dt;
+    const t=Math.min(1,a.age/1.2);
+    a.part.position.copy(a.curve.getPoint(t));
+    a.part.visible=t<1;
+    const fade=a.age>2.5?Math.max(0,1-(a.age-2.5)/2):1;
+    a.mesh.material.opacity=0.85*fade;
+  });
+  arcs=arcs.filter(a=>{if(a.age>=a.max){globeGroup.remove(a.mesh);globeGroup.remove(a.part);
+    a.mesh.geometry.dispose();a.mesh.material.dispose();a.part.geometry.dispose();a.part.material.dispose();return false;}return true;});
+}
+
+// Edge flash
+let flashVal=0;
+function triggerFlash(){flashVal=1;}
+function drawFlash(){const el=document.getElementById("edge-flash");
+  el.style.boxShadow=`inset 0 0 200px rgba(255,59,107,${flashVal*0.5})`;
+  if(flashVal>0)flashVal=Math.max(0,flashVal-0.016*2.5);}
+
+// ═══════════════════════════════════════════════════════
+//  CAMERA INTERACTION (drag + wheel)
+// ═══════════════════════════════════════════════════════
+let dragging=false,lastX=0,lastY=0;
+canvas.addEventListener("mousedown",e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;});
+window.addEventListener("mouseup",()=>dragging=false);
+window.addEventListener("mousemove",e=>{
+  if(!dragging)return;
+  camState.az-=(e.clientX-lastX)*0.005;
+  camState.pol=Math.max(0.25,Math.min(2.9,camState.pol-(e.clientY-lastY)*0.005));
+  lastX=e.clientX;lastY=e.clientY;
+});
+canvas.addEventListener("wheel",e=>{e.preventDefault();camState.tRad=Math.max(1.7,Math.min(6,camState.tRad+e.deltaY*0.0012));},{passive:false});
+// touch
+canvas.addEventListener("touchstart",e=>{if(e.touches.length===1){dragging=true;lastX=e.touches[0].clientX;lastY=e.touches[0].clientY;}});
+canvas.addEventListener("touchend",()=>dragging=false);
+canvas.addEventListener("touchmove",e=>{if(dragging&&e.touches.length===1){
+  camState.az-=(e.touches[0].clientX-lastX)*0.006;
+  camState.pol=Math.max(0.25,Math.min(2.9,camState.pol-(e.touches[0].clientY-lastY)*0.006));
+  lastX=e.touches[0].clientX;lastY=e.touches[0].clientY;}},{passive:true});
+
+// ═══════════════════════════════════════════════════════
+//  GAME STATE + OPERATIONS CLOCK
+// ═══════════════════════════════════════════════════════
+let incidents=[],nextId=1,score=0,wrongCmds=0,hitDefcon1=false;
+let spreadEvts=0,resolvedCount=0,spawnedCount=0,defcon=5;
+let cmdHistory=[],histIdx=-1,typingActive=false;
+let simRunning=false,simPaused=false,simDurationSec=0,simTimeSec=0;
+let nextSpawnAtSec=null,lastTick=performance.now(),firstIncidentSeen=false,idleTimer=0;
+
+const ACCEL=720;              // 1 real second = 12 simulated minutes
+const START_HOUR=6;           // operations begin at 06:00
+function worldClock(){
+  const totalMin=START_HOUR*60+(simTimeSec*ACCEL)/60;
+  const day=Math.floor(totalMin/(24*60))+1;
+  const mod=totalMin%(24*60);
+  const hh=Math.floor(mod/60),mm=Math.floor(mod%60);
+  return{day,hh,mm,frac:mod/(24*60)};
+}
+function updateClockUI(){
+  const w=worldClock();
+  const isDay=w.hh>=6&&w.hh<18;
+  document.getElementById("ops-clock").textContent=
+    `${String(w.hh).padStart(2,"0")}:${String(w.mm).padStart(2,"0")} UTC ${isDay?"☀":"🌙"}`;
+  document.getElementById("ops-day").textContent=`DAY ${w.day} · ×${ACCEL} RT`;
+}
+
+// TERMINAL
+const tOut=document.getElementById("t-out"),tIn=document.getElementById("t-in");
+function tPrint(txt,cls="ti"){const d=document.createElement("div");d.className=cls;d.textContent=txt;tOut.appendChild(d);tOut.scrollTop=tOut.scrollHeight;}
+function tClear(){tOut.innerHTML="";}
+function typeLines(lines,cls,onDone){typingActive=true;let i=0;
+  function nl(){if(i>=lines.length){typingActive=false;if(onDone)onDone();return;}
+    const d=document.createElement("div");d.className=cls;d.textContent="";tOut.appendChild(d);
+    let ci=0;const text=lines[i++];
+    function ch(){if(ci<text.length){d.textContent+=text[ci++];tOut.scrollTop=tOut.scrollHeight;setTimeout(ch,8);}else setTimeout(nl,20);}ch();}nl();}
+
+// STRATEGIC CALC
+function getGlobalEscMult(){
+  const prog=Math.min(1,simTimeSec/simDurationSec);
+  const dF=[1.0,1.12,1.25,1.4,1.6][5-defcon];
+  const endF=(simDurationSec-simTimeSec)<120?1.5:1.0;
+  return(1.0+prog*0.9)*dF*endF;
+}
+function timeToNextEsc(inc){if(!simRunning||inc.sev>=3)return null;
+  const rem=inc.escRate-inc.escAge;return Math.max(0,rem/(inc.escMulti*getGlobalEscMult()));}
+function spreadRisk(inc){return inc.sev>=3&&!inc.resolved&&(inc.spreadTimer||0)>10;}
+function triageScore(inc){if(inc.resolved)return -1;const sc=getScenario(inc);if(!sc)return 0;
+  const tte=timeToNextEsc(inc)||999;const steps=sc.steps.length-inc.step;
+  return((3-inc.sev)*10+(1/(tte+1))*100+(spreadRisk(inc)?50:0)+inc.users/10000)/steps;}
+
+// SCORE + DEFCON
+function addScore(p){score+=p;document.getElementById("score-val").textContent=score.toLocaleString();}
+function updateDefcon(){
+  const active=incidents.filter(i=>!i.resolved),s3=active.filter(i=>i.sev===3).length;
+  let d=5;if(active.length>=1)d=4;if(active.length>=3||s3>=1)d=3;if(active.length>=5||s3>=2)d=2;if(s3>=3||active.length>=8)d=1;
+  defcon=d;if(d===1)hitDefcon1=true;
+  const cols=["#00ffa3","#29e0ff","#ffe020","#ff8a20","#ff3b6b"][5-d];
+  document.getElementById("defcon-num").textContent=d;
+  document.getElementById("defcon-num").style.color=cols;
+  const arc=document.getElementById("defcon-arc");
+  arc.style.stroke=cols;arc.style.strokeDashoffset=String(119*(d-1)/4);
+  // atmosphere tint shifts with defcon
+  const ac=[0x29e0ff,0x29e0ff,0xffe020,0xff8a20,0xff3b6b][5-d];
+  atmoMat.uniforms.c.value.setHex(ac);
+}
+
+// INCIDENT PANEL
+function renderIncidents(){
+  const list=document.getElementById("inc-list");
+  const active=incidents.filter(i=>!i.resolved);
+  document.getElementById("inc-count").textContent=active.length+" ACTIVE";
+  if(!incidents.length){list.innerHTML='<div style="padding:16px;color:var(--dim);font-size:12px;text-align:center">No incidents</div>';return;}
+  const disp=[...active.sort((a,b)=>b.sev-a.sev||a.escAge-b.escAge),...incidents.filter(i=>i.resolved).slice(-3)];
+  list.innerHTML=disp.map(inc=>{
+    const mod=window.CW_MODULES[inc.type];const sc=getScenario(inc);if(!mod||!sc)return"";
+    const pct=Math.min(100,(inc.escAge/inc.escRate)*100*(inc.escMulti||1));
+    const sevCls=inc.resolved?"res":"s"+inc.sev;
+    const pill=inc.resolved?'<span class="ic-pill pr">✓ DONE</span>':`<span class="ic-pill p${inc.sev}">SEV ${inc.sev}</span>`;
+    const barCol=pct>80?"var(--crit)":pct>55?"var(--warn)":"var(--ok)";
+    const bar="■".repeat(inc.step)+"□".repeat(sc.steps.length-inc.step);
+    const tte=timeToNextEsc(inc);
+    const tteStr=inc.resolved?"":inc.sev===3?(spreadRisk(inc)?`<span style="color:var(--crit)">⚡ SPREADING</span>`:`<span style="color:var(--crit)">⚠ SEV3 ACTIVE</span>`):
+      (tte!==null?`<span style="color:${tte<15?"var(--crit)":tte<30?"var(--warn)":"var(--dim)"}">⏱ ${Math.round(tte)}s → Sev${inc.sev+1}</span>`:"");
+    const next=!inc.resolved&&inc.step<sc.steps.length?`▸ ${sc.steps[inc.step].toUpperCase()} ${inc.id}`:"";
+    const mut=inc.mutation?`<div class="ic-mut">${inc.mutationLabel}</div>`:"";
+    return `<div class="ic ${sevCls}" data-id="${inc.id}">
+      <div class="ic-top"><span class="ic-ico">${mod.icon}</span><span class="ic-nm">#${inc.id} ${sc.name}</span>${pill}</div>
+      <div class="ic-sub">${inc.city} · ${inc.region} · ~${inc.users.toLocaleString()} users · [${bar}]</div>
+      ${next?`<div class="ic-next">${next}</div>`:""}${tteStr?`<div class="ic-esc">${tteStr}</div>`:""}${mut}
+      ${!inc.resolved?`<div class="ic-bar"><i style="width:${pct}%;background:${barCol}"></i></div>`:""}
+    </div>`;
+  }).join("");
+  // click card = inspect
+  list.querySelectorAll(".ic").forEach(el=>el.addEventListener("click",()=>{
+    const id=el.getAttribute("data-id");if(id&&!typingActive)runCommand("inspect "+id);
+  }));
+}
+
+// SPAWN
+const SPAWN_SCHED=[{after:0,iv:[28,42]},{after:60,iv:[19,30]},{after:150,iv:[13,21]},{after:300,iv:[9,15]},{after:480,iv:[6,11]}];
+function getSpawnInterval(){const s=SPAWN_SCHED.filter(x=>simTimeSec>=x.after).pop()||SPAWN_SCHED[0];
+  const[lo,hi]=s.iv;return(lo+Math.random()*(hi-lo))*[1.6,1.3,1.0,0.8,0.65][5-defcon];}
+function scheduleNextSpawn(first=false){nextSpawnAtSec=simTimeSec+(first?5+Math.random()*4:getSpawnInterval());}
+function minConcurrentNeeded(){if(simTimeSec<45)return 0;if(simTimeSec<120)return 1;if(simTimeSec<240)return 2;if(simTimeSec<420)return 3;return 4;}
+function sysLog(msg,cls="tsys"){const w=worldClock();
+  tPrint(`[D${w.day} ${String(w.hh).padStart(2,"0")}:${String(w.mm).padStart(2,"0")}] ${msg}`,cls);}
+
+function spawnIncident(forcedType=null,forcedCity=null){
+  const mods=Object.keys(window.CW_MODULES);if(!mods.length)return;
+  const activeCities=new Set(incidents.filter(i=>!i.resolved).map(i=>i.city));
+  let cands=CITY_NODES.filter(c=>!activeCities.has(c.city));if(!cands.length)cands=CITY_NODES;
+  const city=forcedCity||cands[Math.floor(Math.random()*cands.length)];
+  const typeName=forcedType||mods[Math.floor(Math.random()*mods.length)];
+  const mod=window.CW_MODULES[typeName];if(!mod)return;
+  const sc=mod.scenarios[Math.floor(Math.random()*mod.scenarios.length)];
+  let mutation=null;
+  if(mod.mutations&&mod.mutations.length&&Math.random()<0.28)mutation=mod.mutations[Math.floor(Math.random()*mod.mutations.length)];
+  const em=mutation?mutation.escMulti:1,um=mutation?mutation.userMult:1;
+  const emergProb=Math.min(0.25,0.05+simTimeSec/simDurationSec*0.25);
+  const rv=Math.random();const sev=rv<emergProb?2+Math.floor(Math.random()*2):1;
+  const users=Math.floor((sc.uMin+Math.random()*(sc.uMax-sc.uMin))*um);
+  const inc={id:nextId++,type:typeName,scenario:sc.id,scenarioName:sc.name,
+    mutation:mutation?mutation.name:null,mutationLabel:mutation?mutation.label:null,
+    city:city.city,lat:city.lat,lon:city.lon,region:city.region,
+    sev,users,escAge:0,escRate:sc.escR*(0.7+Math.random()*0.6)*em,step:0,resolved:false,escMulti:1,spreadTimer:0,
+    spreadMult:mutation?mutation.spreadMult:1};
+  incidents.push(inc);spawnedCount++;idleTimer=0;makeMarker(inc);
+  const ml=inc.mutationLabel?` [${inc.mutationLabel}]`:"";
+  sysLog(`${sev===3?"🔴":sev===2?"🟡":"⚠"} #${inc.id} ${sc.name}${ml} · ${city.city} · Sev ${sev} · ~${users.toLocaleString()} users`,"tw");
+  if(!firstIncidentSeen){firstIncidentSeen=true;setTimeout(()=>tPrint(`  ↳ First incident! Type:  inspect ${inc.id}  to get the fix steps.`,"td"),500);}
+  updateDefcon();renderIncidents();if(sev===3)triggerFlash();
+}
+function resolveIncident(inc){
+  inc.resolved=true;resolvedCount++;const pts=inc.sev===1?100:inc.sev===2?60:30;addScore(pts);
+  updateDefcon();renderIncidents();
+  sysLog(`✅ #${inc.id} ${inc.scenarioName} · ${inc.city} RESOLVED (+${pts} pts)`,"ts");
+  setTimeout(()=>removeMarker(inc),400);
+  setTimeout(()=>{const active=incidents.filter(i=>!i.resolved);if(active.length){
+    const top=active.sort((a,b)=>triageScore(b)-triageScore(a))[0];const tte=timeToNextEsc(top);
+    if(spreadRisk(top))tPrint(`  ⚡ WARNING: #${top.id} about to SPREAD. Type: inspect ${top.id}`,"te");
+    else if(tte!==null&&tte<20)tPrint(`  ⚠ URGENT: #${top.id} escalates in ${Math.round(tte)}s`,"tw");}},300);
+}
+function updateEscalation(dt){const gm=getGlobalEscMult();let changed=false;
+  incidents.forEach(inc=>{if(inc.resolved)return;inc.escAge+=dt*inc.escMulti*gm;const sc=getScenario(inc);if(!sc)return;
+    if(inc.escAge>=inc.escRate&&inc.sev<3){inc.sev++;inc.escAge=0;changed=true;updateMarkerColor(inc);
+      sysLog(`${inc.sev===3?"🔴":"🟡"} #${inc.id} ${inc.scenarioName} → SEV ${inc.sev}: ${sc.escs[inc.sev-1]}`,"tw");
+      if(inc.sev===3)triggerFlash();}});
+  if(changed){updateDefcon();renderIncidents();}}
+function updateSpread(dt){incidents.forEach(inc=>{if(inc.resolved||inc.sev<3)return;
+  inc.spreadTimer=(inc.spreadTimer||0)+dt;const iv=Math.max(8,15-(simTimeSec/simDurationSec)*8);
+  if(inc.spreadTimer>=iv){inc.spreadTimer=0;const sc=getScenario(inc);
+    const chance=0.28*(inc.spreadMult||1)*(1+simTimeSec/simDurationSec*0.5);
+    if(Math.random()<chance){const ac=new Set(incidents.filter(i=>!i.resolved).map(i=>i.city));
+      const cands=CITY_NODES.filter(c=>!ac.has(c.city));if(!cands.length)return;
+      const dst=cands[Math.floor(Math.random()*cands.length)];
+      makeArc({lat:inc.lat,lon:inc.lon},dst);spreadEvts++;addScore(-50);triggerFlash();
+      sysLog(`⚡ SPREAD: ${inc.scenarioName} → ${dst.city} [-50 pts]`,"te");
+      const st=(sc&&sc.spread&&window.CW_MODULES[sc.spread])?sc.spread:inc.type;spawnIncident(st,dst);}}});}
+function checkMinIncidents(){if(!simRunning||simPaused)return;const active=incidents.filter(i=>!i.resolved).length;
+  const need=minConcurrentNeeded();if(active<need){spawnIncident();if(need-active>1)setTimeout(()=>spawnIncident(),2500);}}
+
+// ═══════════════════════════════════════════════════════
+//  COMMAND SYSTEM
+// ═══════════════════════════════════════════════════════
+const ALL_CMDS=["help","scan","triage","status","inspect","explain","hint","history","clear",
+  "trace","isolate","block","notify-users","null-route","rate-limit","patch","revoke-access",
+  "backup-restore","kill-process","lockout","dns-flush","wipe-clean","educate","scan-net"];
+
+function runCommand(raw){
+  if(typingActive){tPrint("Terminal busy.","td");return;}
+  raw=raw.trim();if(!raw)return;
+  const sp=raw.indexOf(" ");const cmd=sp===-1?raw.toLowerCase():raw.slice(0,sp).toLowerCase();
+  const arg=sp===-1?"":raw.slice(sp+1).trim();const idN=parseInt(arg);
+  tPrint("▸ "+raw,"tc");cmdHistory.unshift(raw);if(cmdHistory.length>50)cmdHistory.pop();histIdx=-1;
+  if(cmd==="clear"){tClear();return;}
+  if(cmd==="help"){
+    tPrint("─── COMMANDS ───","th");
+    tPrint("  scan         Live threat board + countdown timers","ti");
+    tPrint("  triage       Priority advice — what to hit next & why","ti");
+    tPrint("  inspect <id> Fix steps for an incident","ti");
+    tPrint("  explain <id> OCR spec theory briefing","ti");
+    tPrint("  hint <id>    Guided hint [-20 pts]","tw");
+    tPrint("  status       Score / time / DEFCON","ti");
+    tPrint("─── Response Actions ───","th");
+    tPrint("  trace isolate block notify-users null-route rate-limit","ti");
+    tPrint("  patch revoke-access backup-restore kill-process lockout","ti");
+    tPrint("  dns-flush wipe-clean educate scan-net","ti");
+    tPrint("─── Tips ───","th");
+    tPrint("  Click an incident card = inspect it.","td");
+    tPrint("  Drag the globe to rotate · scroll to zoom.","td");
+    tPrint("  Step progress saves — batch step-1s, then step-2s.","td");
+    return;
+  }
+  if(cmd==="scan"){
+    const active=incidents.filter(i=>!i.resolved);
+    if(!active.length){tPrint("No active incidents.","ti");return;}
+    tPrint(`─── ${active.length} Active · DEFCON ${defcon} ───`,"th");
+    active.sort((a,b)=>triageScore(b)-triageScore(a)).forEach(inc=>{
+      const mod=window.CW_MODULES[inc.type];const sc=getScenario(inc);if(!mod||!sc)return;
+      const bar="■".repeat(inc.step)+"□".repeat(sc.steps.length-inc.step);const tte=timeToNextEsc(inc);
+      const ts=inc.sev===3?(spreadRisk(inc)?"⚡SPREAD":"🔴SEV3"):tte!==null?`⏱${Math.round(tte)}s`:"";
+      const cls=inc.sev===3||tte<15?"te":tte<30?"tw":"ti";
+      tPrint(`  #${String(inc.id).padEnd(3)}${mod.icon} ${sc.name.padEnd(28)}[${bar}] ${inc.city.padEnd(13)}~${String(inc.users.toLocaleString()).padEnd(8)} ${ts}`,cls);
+    });
+    const top=active.sort((a,b)=>triageScore(b)-triageScore(a))[0];const sc=getScenario(top);
+    if(top.sev===3&&spreadRisk(top))tPrint(`  → CRITICAL: #${top.id} spreading now — act immediately!`,"te");
+    else if(sc){const tte=timeToNextEsc(top);if(tte<20)tPrint(`  → URGENT: #${top.id} → next: ${sc.steps[top.step].toUpperCase()} ${top.id} (${Math.round(tte)}s)`,"tw");}
+    return;
+  }
+  if(cmd==="triage"){
+    const active=incidents.filter(i=>!i.resolved);if(!active.length){tPrint("All clear. Well done.","ts");return;}
+    tPrint("─── TRIAGE ASSESSMENT ───","th");
+    active.sort((a,b)=>triageScore(b)-triageScore(a)).slice(0,5).forEach((inc,i)=>{
+      const sc=getScenario(inc),mod=window.CW_MODULES[inc.type];if(!sc||!mod)return;
+      const tte=timeToNextEsc(inc);
+      const reason=spreadRisk(inc)?"SPREADING — costs 50 pts/spread":inc.sev===3?"Sev 3 — will spread if ignored":
+        tte!==null&&tte<20?`Escalates in ${Math.round(tte)}s`:inc.users>20000?`High impact — ${inc.users.toLocaleString()} users`:
+        `Next: ${sc.steps[inc.step].toUpperCase()} ${inc.id}`;
+      tPrint(`  #${i+1} [#${inc.id}] ${mod.icon} ${sc.name} — ${reason}`,i===0?"te":i<=2?"tw":"ti");
+    });
+    return;
+  }
+  if(cmd==="status"){tPrint(`─── Status · DEFCON ${defcon} ───`,"th");
+    tPrint(`  Score ${score} | Resolved ${resolvedCount}/${spawnedCount} | Errors ${wrongCmds}`,"ti");
+    tPrint(`  Spread events ${spreadEvts} | Mission time left ${fmt(Math.max(0,simDurationSec-simTimeSec))}`,"ti");
+    const w=worldClock();tPrint(`  Ops clock: Day ${w.day}, ${String(w.hh).padStart(2,"0")}:${String(w.mm).padStart(2,"0")} UTC (×${ACCEL} real-time)`,"td");return;}
+  if(cmd==="history"){tPrint("─── History ───","th");cmdHistory.slice(0,12).forEach((h,i)=>tPrint(`  ${i+1}. ${h}`,"td"));return;}
+  if(!idN||isNaN(idN)){tPrint(`Usage: ${cmd} <id> · 'scan' to list`,"td");return;}
+  const inc=incidents.find(i=>i.id===idN);if(!inc){tPrint(`No incident #${idN}.`,"td");return;}
+  if(inc.resolved){tPrint(`#${idN} already resolved.`,"td");return;}
+  const mod=window.CW_MODULES[inc.type];const sc=getScenario(inc);if(!mod||!sc){tPrint("Data missing.","te");return;}
+  if(cmd==="inspect"){
+    const bar="■".repeat(inc.step)+"□".repeat(sc.steps.length-inc.step);const tte=timeToNextEsc(inc);
+    tPrint(`─── #${inc.id}: ${sc.name} ───`,"th");
+    tPrint(`  ${mod.icon} ${mod.cat} · Sev ${inc.sev} · [${bar}] step ${inc.step}/${sc.steps.length}`,"ti");
+    tPrint(`  ${inc.city} (${inc.region}) · ~${inc.users.toLocaleString()} users at risk`,"ti");
+    if(inc.mutation)tPrint(`  Modifier: ${inc.mutationLabel}`,"tg");
+    tPrint(`  ${inc.sev===3?"⚡ SEV 3 — WILL SPREAD if unresolved":tte!==null?`⏱ Escalates to Sev ${inc.sev+1} in ~${Math.round(tte)}s`:""}`,"tw");
+    tPrint(`  Intel: ${sc.escs[inc.sev-1]}`,"td");
+    tPrint(`  NEXT COMMAND: ${sc.steps[inc.step].toUpperCase()} ${inc.id}`,"ts");
+    tPrint(`  'explain ${inc.id}' = theory · 'hint ${inc.id}' = -20pts`,"td");return;
+  }
+  if(cmd==="explain"){const note=["",`SCENARIO: ${sc.name}`,sc.short,"","RESPONSE STEPS:",
+    ...sc.steps.map((s,i)=>`  ${i+1}. ${s.toUpperCase()} ${inc.id}`),""];typeLines([...mod.explain,...note],"ty");return;}
+  if(cmd==="hint"){addScore(-20);tPrint(`HINT [-20 pts]: ${sc.steps[inc.step].toUpperCase()} ${inc.id}`,"tw");tPrint(`  ${sc.smsgs[inc.step]||""}`,"td");return;}
+  const expected=sc.steps[inc.step];
+  if(cmd===expected){const msg=sc.smsgs[inc.step];inc.step++;
+    if(inc.step>=sc.steps.length){tPrint(`✅ ${msg}`,"ts");resolveIncident(inc);}
+    else{tPrint(`✓ ${msg}`,"ts");tPrint(`  NEXT: ${sc.steps[inc.step].toUpperCase()} ${inc.id}`,"ti");renderIncidents();}return;}
+  const fi=sc.steps.indexOf(cmd);
+  if(fi>inc.step){tPrint(`⚠ Step ${fi+1} — do step ${inc.step+1} first: ${sc.steps[inc.step].toUpperCase()} ${inc.id}`,"tw");return;}
+  if(fi>-1&&fi<inc.step){tPrint(`Already done. Next: ${sc.steps[inc.step].toUpperCase()} ${inc.id}`,"td");return;}
+  if(sc.wrong&&sc.wrong[cmd]){wrongCmds++;addScore(-10);inc.escMulti*=1.15;
+    tPrint(`❌ ${sc.wrong[cmd]}`,"te");tPrint(`   [-10 pts] Escalation accelerated.`,"td");}
+  else if(ALL_CMDS.includes(cmd)){wrongCmds++;addScore(-10);inc.escMulti*=1.08;
+    tPrint(`❌ '${cmd}' ineffective vs ${sc.name}. [-10 pts]`,"te");tPrint(`   'inspect ${inc.id}' for clues.`,"td");}
+  else tPrint(`Unknown command '${cmd}'. Type 'help'.`,"td");
+}
+
+function fmt(s){s=Math.max(0,s);return`${String(Math.floor(s/60)).padStart(2,"0")}:${String(Math.floor(s%60)).padStart(2,"0")}`;}
+
+// ═══════════════════════════════════════════════════════
+//  SPLASH + END
+// ═══════════════════════════════════════════════════════
+document.querySelector("#splash .ov-card").innerHTML=`
+  <div class="ov-tag">EYES ONLY · GLOBAL THREAT OPERATIONS</div>
+  <div class="ov-title">CYBERWATCH NEO</div>
+  <div class="ov-sub">REAL-TIME INCIDENT RESPONSE · OCR H446 ALIGNED</div>
+  <div class="ov-sec"><div class="ov-sh">SITUATION</div>
+    <div class="ov-txt">You command a live global threat grid. This is accelerated real time — the operations clock runs at <b>×720</b>, so each minute on shift compresses 12 hours of real-world incident response. Watch dawn and dusk sweep the planet and city lights glow as you work. Attacks erupt faster than any one analyst can resolve. You decide what to save.</div></div>
+  <div class="ov-sec"><div class="ov-sh">THREE COMMANDS TO KNOW</div>
+    <div class="ov-cmd"><code>scan</code><span>Live threat board with countdown timers to escalation</span></div>
+    <div class="ov-cmd"><code>inspect &lt;id&gt;</code><span>The exact step-by-step commands to neutralise a threat</span></div>
+    <div class="ov-cmd"><code>triage</code><span>Priority guidance — what to tackle next and why</span></div></div>
+  <div class="ov-sec"><div class="ov-sh">THE STRATEGIC REALITY</div>
+    <div class="ov-rules">
+      <div class="ov-rule r">Sev 3 incidents SPREAD to new cities — multiplying your workload</div>
+      <div class="ov-rule y">Wrong commands cost points AND accelerate escalation</div>
+      <div class="ov-rule g">Sev 1 fast = 100pts · Sev 3 slow = 30pts. Speed wins.</div>
+      <div class="ov-rule w">hint costs 20pts but can save a city from spreading</div></div></div>
+  <div class="ov-q">When three incidents escalate at once and you can only type one command — which do you choose, and why? That decision is the whole game.</div>
+  <button class="ov-btn" id="splashBtn">▶ ACCEPT BRIEFING — DEPLOY</button>`;
+document.getElementById("splashBtn").addEventListener("click",()=>{document.getElementById("splash").classList.remove("show");tIn.focus();});
+
+window.startNewGame=function(){document.getElementById("end").classList.remove("show");document.getElementById("splash").classList.add("show");};
+function showEndScreen(){
+  const pct=spawnedCount>0?resolvedCount/spawnedCount:0;let g,t,c;
+  if(pct>=0.9&&wrongCmds<=3&&!hitDefcon1){g="S";t="CISO — ELITE THREAT HUNTER";c="#29e0ff";}
+  else if(pct>=0.8){g="A";t="SENIOR SECURITY ANALYST";c="#00ffa3";}
+  else if(pct>=0.6){g="B";t="SECURITY ANALYST";c="#9b6dff";}
+  else if(pct>=0.4){g="C";t="JUNIOR ANALYST";c="#ffb020";}
+  else if(pct>=0.2){g="D";t="SECURITY INTERN";c="#ff8a20";}
+  else{g="F";t="SYSTEM COMPROMISED";c="#ff3b6b";}
+  const seen={};incidents.forEach(i=>{const k=i.scenarioName||i.type;if(!seen[k])seen[k]={n:0,r:0,type:i.type};seen[k].n++;if(i.resolved)seen[k].r++;});
+  const rows=Object.entries(seen).map(([nm,v])=>{const m=window.CW_MODULES[v.type];const ok=v.r===v.n;
+    return `<div class="arow" style="border-color:${ok?"var(--ok)":"var(--crit)"}"><span>${m?m.icon:""} ${nm}</span><span style="color:${ok?"var(--ok)":"var(--crit)"}">${v.r}/${v.n}</span></div>`;}).join("");
+  const w=worldClock();
+  document.getElementById("ec").innerHTML=`
+    <div class="ov-tag" style="text-align:center">MISSION COMPLETE · DEBRIEF</div>
+    <div class="grade" style="color:${c}">${g}</div><div class="gtitle" style="color:${c}">${t}</div>
+    <div class="stats">
+      <div class="stat"><div class="l">Score</div><div class="v" style="color:${c}">${score.toLocaleString()}</div></div>
+      <div class="stat"><div class="l">Resolved</div><div class="v">${resolvedCount}/${spawnedCount}</div></div>
+      <div class="stat"><div class="l">Resolution</div><div class="v">${Math.round(pct*100)}%</div></div>
+      <div class="stat"><div class="l">Errors</div><div class="v" style="color:${wrongCmds>8?'var(--crit)':'var(--ok)'}">${wrongCmds}</div></div>
+      <div class="stat"><div class="l">Spread Events</div><div class="v" style="color:${spreadEvts>3?'var(--crit)':spreadEvts>0?'var(--warn)':'var(--ok)'}">${spreadEvts}</div></div>
+      <div class="stat"><div class="l">Sim Duration</div><div class="v">${w.day}d ${String(w.hh).padStart(2,"0")}h</div></div>
+    </div>
+    <div class="ov-sh">SCENARIOS ENCOUNTERED</div>${rows}
+    <div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.7">OCR H446: Network security 1.3.3(c) · Encryption 1.3.1(c) · SQL 1.3.2(d). Use 'explain &lt;id&gt;' next run to learn the theory.</div>
+    <button class="ov-btn" onclick="startNewGame()">▶ REDEPLOY</button>`;
+  document.getElementById("end").classList.add("show");
+}
+
+// ═══════════════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════════════
+document.getElementById("btnStart").addEventListener("click",()=>{
+  const mins=Math.max(10,Math.min(30,Number(document.getElementById("dur").value)||10));
+  simDurationSec=mins*60;simRunning=true;simPaused=false;simTimeSec=0;
+  incidents.forEach(removeMarker);incidents=[];nextId=1;score=0;wrongCmds=0;hitDefcon1=false;
+  spreadEvts=0;resolvedCount=0;spawnedCount=0;defcon=5;firstIncidentSeen=false;idleTimer=0;
+  cmdHistory=[];histIdx=-1;flashVal=0;arcs.forEach(a=>{globeGroup.remove(a.mesh);globeGroup.remove(a.part);});arcs=[];
+  document.getElementById("btnPause").disabled=false;document.getElementById("btnCancel").disabled=false;
+  document.getElementById("btnPause").textContent="❚❚";document.getElementById("score-val").textContent="0";
+  tClear();
+  tPrint("═══ CYBERWATCH NEO — LIVE ═══","th");
+  tPrint(`${mins}-min mission · ${Object.keys(window.CW_MODULES).length} modules · ops clock ×${ACCEL}`,"ti");
+  tPrint("scan · triage · inspect <id> — click cards to inspect.","ti");
+  tPrint("Sev 3 spreads if ignored. Drag globe to rotate.","tw");
+  tPrint("Threat grid live. First incident incoming...","td");
+  renderIncidents();updateDefcon();scheduleNextSpawn(true);lastTick=performance.now();tIn.focus();
+});
+document.getElementById("btnPause").addEventListener("click",()=>{if(!simRunning)return;simPaused=!simPaused;
+  document.getElementById("btnPause").textContent=simPaused?"▶":"❚❚";if(!simPaused)lastTick=performance.now();
+  tPrint(simPaused?"[ PAUSED ]":"[ RESUMED ]","td");});
+document.getElementById("btnCancel").addEventListener("click",()=>{simRunning=false;simPaused=false;
+  document.getElementById("btnPause").disabled=true;document.getElementById("btnCancel").disabled=true;
+  tPrint("[ MISSION ABORTED ]","te");showEndScreen();});
+tIn.addEventListener("keydown",e=>{
+  if(e.key==="Enter"){const v=tIn.value.trim();tIn.value="";if(v)runCommand(v);}
+  if(e.key==="ArrowUp"){e.preventDefault();if(histIdx<cmdHistory.length-1){histIdx++;tIn.value=cmdHistory[histIdx]||"";}}
+  if(e.key==="ArrowDown"){e.preventDefault();if(histIdx>0){histIdx--;tIn.value=cmdHistory[histIdx]||"";}else{histIdx=-1;tIn.value="";}}
+  if(e.key==="Tab"){e.preventDefault();const v=tIn.value.toLowerCase().trim();if(!v)return;const m=ALL_CMDS.find(c=>c.startsWith(v));if(m)tIn.value=m+" ";}
+});
+document.getElementById("ticker").innerHTML=[...FEED].sort(()=>Math.random()-0.5).map(f=>`● ${f}&nbsp;&nbsp;&nbsp;&nbsp;`).join("");
+
+// ═══════════════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════════════
+function animate(){
+  const now=performance.now();const dt=Math.min(0.05,(now-lastTick)/1000);lastTick=now;
+  // Globe spin tied to ops clock (one rotation per simulated day → day/night sweep)
+  globeGroup.rotation.y=worldClock().frac*Math.PI*2;
+  updateCamera();
+  animateMarkers(dt);animateArcs(dt);drawFlash();
+  stars.rotation.y+=dt*0.005;
+  renderer.render(scene,camera);
+  if(simRunning&&!simPaused){
+    simTimeSec+=dt;idleTimer+=dt;
+    document.getElementById("mission-time").textContent=fmt(Math.max(0,simDurationSec-simTimeSec));
+    updateClockUI();
+    if(nextSpawnAtSec!==null&&simTimeSec>=nextSpawnAtSec){spawnIncident();scheduleNextSpawn();}
+    if(simTimeSec>60&&idleTimer>5&&incidents.filter(i=>!i.resolved).length===0){spawnIncident();idleTimer=0;}
+    if(Math.floor(simTimeSec)%8===0)checkMinIncidents();
+    updateEscalation(dt);updateSpread(dt);
+    if(simTimeSec>=simDurationSec){simRunning=false;
+      document.getElementById("btnPause").disabled=true;document.getElementById("btnCancel").disabled=true;showEndScreen();}
+  }
+  requestAnimationFrame(animate);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+loadModules(results=>{
+  const loaded=Object.keys(window.CW_MODULES);
+  if(!loaded.length){
+    document.getElementById("loading").innerHTML='<div class="lt" style="color:var(--crit)">⚠ NO MODULES — run via serve.py or GitHub Pages</div>';
+    return;
+  }
+  tPrint("═══ CYBERWATCH NEO v1.0 ═══","th");
+  tPrint(`${loaded.length} attack modules online.`,"ti");
+  loaded.forEach(n=>{const m=window.CW_MODULES[n];tPrint(`  ${m.icon} ${n} — ${m.scenarios.length} scenarios`,"ti");});
+  tPrint("Photorealistic threat grid ready. Press DEPLOY.","td");
+  document.getElementById("btnStart").disabled=false;
+  document.getElementById("loading").style.display="none";
+  updateDefcon();updateClockUI();animate();
+});
+</script>
+</body>
+</html>
